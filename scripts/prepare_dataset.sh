@@ -20,6 +20,7 @@ VERBOSE_EPISODES="${VERBOSE_EPISODES:-0}"
 VALIDATE_IMAGES_ONLY="${VALIDATE_IMAGES_ONLY:-0}"
 REPAIR_RESUME="${REPAIR_RESUME:-0}"
 COPY_ORIGINAL_IMAGES="${COPY_ORIGINAL_IMAGES:-1}"
+IMAGE_LINK_MODE="${IMAGE_LINK_MODE:-hardlink}"
 
 if [[ "$USE_VENV" == "1" ]]; then
   source "$VENV_DIR/bin/activate"
@@ -28,7 +29,7 @@ else
   PYTHON_CMD="$PYTHON_BIN"
 fi
 
-export PYTHONPATH="$ROOT_DIR/src:${PYTHONPATH:-}"
+export PYTHONPATH="$ROOT_DIR/src:$ROOT_DIR/lerobot:${PYTHONPATH:-}"
 
 CMD=(
   "$PYTHON_CMD" -m pi05_jax_sft.convert_company_dataset
@@ -44,7 +45,7 @@ CMD=(
 [[ "$VERBOSE_EPISODES" == "1" ]] && CMD+=(--verbose-episodes)
 [[ "$VALIDATE_IMAGES_ONLY" == "1" ]] && CMD+=(--validate-images-only)
 [[ "$REPAIR_RESUME" == "1" ]] && CMD+=(--repair-resume)
-[[ "$COPY_ORIGINAL_IMAGES" == "1" ]] && CMD+=(--copy-original-images)
+[[ "$COPY_ORIGINAL_IMAGES" == "1" ]] && CMD+=(--copy-original-images --image-link-mode "$IMAGE_LINK_MODE")
 [[ "$RESUME" == "1" ]] && CMD+=(--resume)
 [[ "$DRY_RUN" == "1" ]] && CMD+=(--dry-run)
 [[ "$DRY_RUN" != "1" && "$RESUME" != "1" ]] && CMD+=($OVERWRITE_FLAG)

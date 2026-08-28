@@ -383,9 +383,15 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--copy-original-images", action="store_true",
                    default=os.environ.get("COPY_ORIGINAL_IMAGES", "0") == "1",
                    help=(
-                       "Copy original image files into the LeRobot episode table instead of decoding "
-                       "and re-encoding them. Fast path for raw JPEG datasets."
+                       "Reuse original image files instead of decoding/re-encoding. "
+                       "Combined with --image-link-mode (default hardlink)."
                    ))
+    p.add_argument(
+        "--image-link-mode",
+        choices=("hardlink", "symlink", "copy"),
+        default=os.environ.get("IMAGE_LINK_MODE", "hardlink"),
+        help="How to place original images into the LeRobot tree when --copy-original-images is set.",
+    )
     return p.parse_args()
 
 
@@ -394,6 +400,23 @@ def _iter_episode_dirs(cfg: PipelineConfig) -> list[Path]:
     episode_dirs = sorted((p for p in raw_root.iterdir() if p.is_dir()), key=_episode_sort_key)
     if not episode_dirs:
         raise FileNotFoundError(f"No episode directories found under {raw_root}")
+
+    # Tonglu: only keep raw episodes that have a matching annotation file and steps.json.
+    # Avoids scanning junk dirs (e.g. converted_act) and hundreds of unannotated episodes.
+    if cfg.data.dataset_format == "tonglu_annotation":
+        if cfg.data.annotation_root is None:
+            raise ValueError("data.annotation_root is required for dataset_format=tonglu_annotation")
+        ann_root = cfg.resolve_path(cfg.data.annotation_root)
+        episode_dirs = [
+            p
+            for p in episode_dirs
+            if (p / "steps.json").is_file() and (ann_root / f"{p.name}.txt").is_file()
+        ]
+        if not episode_dirs:
+            raise FileNotFoundError(
+                f"No annotated episodes found under {raw_root} with annotations in {ann_root}"
+            )
+
     if cfg.data.max_episodes is not None:
         episode_dirs = episode_dirs[: cfg.data.max_episodes]
     return episode_dirs
@@ -623,9 +646,23 @@ def _make_lerobot_frame_adder(dataset: Any):
     return lambda frame, task: dataset.add_frame({**frame, "task": task})
 
 
-def _install_copy_original_image_writer(dataset: Any, image_suffix: str = ".jpg") -> None:
-    """Patch a LeRobotDataset instance to copy image files instead of encoding arrays."""
+def _install_copy_original_image_writer(
+    dataset: Any,
+    image_suffix: str = ".jpg",
+    *,
+    link_mode: str = "hardlink",
+) -> None:
+    """Patch a LeRobotDataset instance to reuse original image files.
+
+    ``link_mode``:
+      - ``hardlink``: prefer ``os.link`` (no extra disk bytes on same filesystem)
+      - ``symlink``: ``os.symlink`` to the raw path
+      - ``copy``: ``shutil.copy2`` (full duplicate; only if links are unavailable)
+    """
     original_save_image = dataset._save_image
+    link_mode = (link_mode or "hardlink").lower()
+    if link_mode not in {"hardlink", "symlink", "copy"}:
+        raise ValueError(f"unsupported image link_mode={link_mode!r}")
 
     def get_image_file_path(episode_index: int, image_key: str, frame_index: int) -> Path:
         return (
@@ -640,7 +677,21 @@ def _install_copy_original_image_writer(dataset: Any, image_suffix: str = ".jpg"
         source = getattr(image, "filename", None)
         if source:
             fpath.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(source, fpath)
+            src = Path(source)
+            if fpath.exists() or fpath.is_symlink():
+                fpath.unlink()
+            if link_mode == "hardlink":
+                try:
+                    os.link(src, fpath)
+                    return
+                except OSError:
+                    # Cross-device or unsupported FS: fall through to copy.
+                    shutil.copy2(src, fpath)
+                    return
+            if link_mode == "symlink":
+                os.symlink(src.resolve(), fpath)
+                return
+            shutil.copy2(src, fpath)
             return
         original_save_image(image, fpath)
 
@@ -829,9 +880,14 @@ def main() -> None:
             image_writer_processes=0 if args.copy_original_images else args.image_writer_processes,
         )
     if args.copy_original_images:
-        _install_copy_original_image_writer(dataset, _copied_image_suffix(records))
+        _install_copy_original_image_writer(
+            dataset,
+            _copied_image_suffix(records),
+            link_mode=args.image_link_mode,
+        )
         print(
-            "Copy original images enabled: using source image bytes instead of decoding/re-encoding.",
+            f"Reuse original images enabled: link_mode={args.image_link_mode} "
+            "(no JPEG decode/re-encode).",
             flush=True,
         )
     add_lerobot_frame = _make_lerobot_frame_adder(dataset)
