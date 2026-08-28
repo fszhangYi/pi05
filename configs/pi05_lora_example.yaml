@@ -1,0 +1,63 @@
+# ============================================================
+# pi0.5 LoRA 微调 — 8 卡 A100  (~552 episodes, ~7.3 万帧)
+#
+# LoRA 策略: PaliGemma 主干冻结 + LoRA 适配器（rank=16, attn+ffn）
+#             Action Expert 全参训练（机器人动作需要完整适配）
+#
+# 显存更少: 可在 40G A100 × 8 或更少卡上运行
+# 2 卡版本: fsdp_devices=2, batch_size=32, num_train_steps=60000
+# ============================================================
+
+project:
+  name: pi05_company_lora
+  exp_name: 8gpu_lora
+  project_name: pi05-company
+
+data:
+  repo_id: company/pi05_company_task
+  raw_root: /home/znyyb/hww/vla/cam_100_15
+  hf_lerobot_home: ./data/lerobot
+  robot_type: custom
+  fps: 15
+  wrist_image_prefix: rgb_wrist_1
+  task_name: "抓取镜头模组"
+  max_episodes: null
+
+model:
+  action_horizon: 10
+  max_token_len: 200
+  discrete_state_input: true
+  # PaliGemma 主干走 LoRA (rank=16)，仅 LoRA 权重参与梯度
+  # Action Expert 保持全参（gemma_300m），负责动作预测
+  paligemma_variant: gemma_2b_lora
+  action_expert_variant: gemma_300m
+
+training:
+  seed: 42
+  # 2 × RTX 5090 (32 GB each)
+  # per_gpu = batch_size / fsdp_devices = 16 → fits in 32 GB with LoRA
+  # If still OOM, drop batch_size to 16 (per_gpu=8).
+  batch_size: 32
+  fsdp_devices: 2
+  num_workers: 8
+  # 552 ep × 132 帧 ≈ 7.3 万帧; batch=32 → ~2281 步/epoch
+  # 30000 步 ≈ 13 epoch (LoRA 收敛快，够用；如需更多 epoch 可加到 60000)
+  num_train_steps: 30000
+  log_interval: 100
+  save_interval: 3000
+  keep_period: 15000
+  peak_lr: 1.0e-4
+  decay_lr: 1.0e-4
+  warmup_steps: 500
+  decay_steps: 30000
+  ema_decay: null   # disabled to reduce peak GPU memory during FSDP init (~5.5 GB saved)
+  clip_gradient_norm: 1.0
+  wandb_enabled: false
+  overwrite: false
+  resume: false
+
+paths:
+  assets_base_dir: ./artifacts/assets
+  checkpoint_base_dir: ./artifacts/checkpoints
+  base_checkpoint_path: /data/pretrained/pi05_base/params
+  eval_output_dir: ./artifacts/eval

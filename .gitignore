@@ -1,0 +1,13 @@
+.venv/
+artifacts/
+checkpoints/
+data/
+logs/
+build/
+__pycache__/
+*.pyc
+*.pyo
+*.log
+*.egg-info/
+.claude/
+*.tar.gz
