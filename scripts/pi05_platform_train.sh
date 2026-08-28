@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-CONFIG_PATH="${1:-$ROOT_DIR/configs/pi05_company_example.yaml}"
-VENV_DIR="${VENV_DIR:-$ROOT_DIR/.venv}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=common_env.sh
+source "$SCRIPT_DIR/common_env.sh"
+
+CONFIG_PATH="${1:-$ROOT_DIR/configs/pi05_act_robot_smoke.yaml}"
 USE_VENV="${USE_VENV:-1}"
 PYTHON_BIN="${PYTHON_BIN:-python3.12}"
 
@@ -24,12 +26,7 @@ fi
 export XLA_PYTHON_CLIENT_MEM_FRACTION="${XLA_PYTHON_CLIENT_MEM_FRACTION:-0.90}"
 export TOKENIZERS_PARALLELISM="${TOKENIZERS_PARALLELISM:-false}"
 
-if [[ "$USE_VENV" == "1" ]]; then
-  source "$VENV_DIR/bin/activate"
-  PYTHON_CMD="python"
-else
-  PYTHON_CMD="$PYTHON_BIN"
-fi
+pi05_activate_python
 
 echo "Running single-node JAX training"
 echo "CONFIG_PATH=${CONFIG_PATH}"

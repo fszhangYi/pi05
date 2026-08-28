@@ -12,7 +12,7 @@ PYTHON_BIN="${PYTHON_BIN:-python3.12}"
 VENV_DIR="${VENV_DIR:-$ROOT_DIR/.venv}"
 USE_VENV="${USE_VENV:-0}"
 OPENPI_DIR="${OPENPI_DIR:-$ROOT_DIR/external/openpi}"
-LEROBOT_SRC_DIR="${LEROBOT_SRC_DIR:-$ROOT_DIR/third_party/lerobot}"
+LEROBOT_SRC_DIR="${LEROBOT_SRC_DIR:-$ROOT_DIR/lerobot}"
 LEROBOT_PACKAGE="${LEROBOT_PACKAGE:-lerobot}"
 
 if [[ ! -d "$OPENPI_DIR/src/openpi" ]]; then

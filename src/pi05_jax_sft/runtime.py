@@ -21,6 +21,8 @@ def configure_lerobot_home(home: Path) -> None:
 
 def ensure_openpi_importable(project_root: Path) -> None:
     for root in [
+        project_root / "src",
+        project_root / "lerobot",
         project_root / "external" / "openpi" / "src",
         project_root / "external" / "openpi" / "packages" / "openpi-client" / "src",
     ]:
