@@ -8,7 +8,7 @@
 
 | 文件 | 改动 |
 |---|---|
-| `configs/pi05_act_robot_smoke.yaml` | `num_train_steps: 10000`；`log_interval: 50`；`save_interval: 2000`；`keep_period: 5000`；`warmup/decay_steps` 对齐 10k；`fsdp_devices: 1`，`batch_size: 8`（单卡 5090） |
+| `configs/pi05_act_robot_smoke.yaml` | `num_train_steps: 10000`；单卡 `fsdp_devices: 1`；为塞进 32GB：`batch_size: 2`，`paligemma`+`action_expert` **双 LoRA**（仅 backbone LoRA + 全参 expert 会在 `init_train_state` OOM ~38GiB） |
 | `configs/pi05_act_robot_local.yaml` | `annotation_root` 指向 `.../restored_txt`；全量用，冒烟用 smoke 配置 |
 
 ---

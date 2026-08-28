@@ -101,6 +101,27 @@ TypeError: stack(): argument 'tensors' (position 1) must be tuple of Tensors, no
 
 ---
 
+## ISSUE-003：训练依赖未随 `--no-deps` 安装完整
+
+**状态：** 已修复（`requirements/openpi_jax.txt` + `setup_env.sh` 补装）  
+**日期：** 2026-08-28
+
+### 现象
+
+`ModuleNotFoundError: datasets` / `torchvision` / `chex` / `pytest` / `numpydantic` 等。
+
+### 根因
+
+`setup_env.sh` 对 `lerobot` / `openpi` 使用 `--no-deps`，传递依赖不会自动装上。
+
+### 修复
+
+- `openpi_jax.txt` 增加 `chex`、`pytest`、`numpydantic` 等
+- `setup_env.sh` 末尾补装 `chex`、`pytest`
+- 训练环境另需：`datasets`、`torchvision`（与 `torch==2.7.0` 匹配的 `torchvision==0.22.0`）等；后续可继续收进 requirements
+
+---
+
 ## ISSUE-004：调试加载 `LeRobotDataset` 导致主机内存飙到 ~90GB+
 
 **状态：** 已处理（杀掉残留进程）；训练时需注意不要一次物化全部图像  
@@ -142,19 +163,33 @@ kill -9 <pid>
 | 报错 | `ENOSPC` / Errno 28 | 无报错时也会把机器拖慢 |
 | 原因 | HF 缓存写到 overlay | 全量图像解码进 RAM |
 
-**状态：** 已修复（`requirements/openpi_jax.txt` + `setup_env.sh` 补装）  
+---
+
+## ISSUE-005：单卡 32GB 上 `gemma_2b_lora` + 全参 `gemma_300m` 初始化 OOM
+
+**状态：** 冒烟配置已改为双 LoRA + `batch_size: 2`  
 **日期：** 2026-08-28
 
 ### 现象
 
-`ModuleNotFoundError: datasets` / `torchvision` / `chex` / `pytest` / `numpydantic` 等。
+```text
+XlaRuntimeError: RESOURCE_EXHAUSTED: Failed to allocate request for 576.00MiB ...
+The byte size of input/output arguments (40575638180) exceeds the base limit (26936606720)
+... only reduced to 37.79GiB
+```
+
+发生在 `init_train_state` 的 `jax.jit(init)`，尚未进入训练 step 循环。
 
 ### 根因
 
-`setup_env.sh` 对 `lerobot` / `openpi` 使用 `--no-deps`，传递依赖不会自动装上。
+RTX 5090 仅 **32GB**。pi0.5 base 权重约 **12.5GiB**，再加 AdamW 对全参 action expert 的优化状态，XLA 峰值约 **38GiB**。  
+官方 README 亦写 LoRA 最低约 **2×A100 40G**。
 
-### 修复
+### 处理
 
-- `openpi_jax.txt` 增加 `chex`、`pytest`、`numpydantic` 等
-- `setup_env.sh` 末尾补装 `chex`、`pytest`
-- 训练环境另需：`datasets`、`torchvision`（与 `torch==2.7.0` 匹配的 `torchvision==0.22.0`）等；后续可继续收进 requirements
+冒烟 YAML：
+
+- `action_expert_variant: gemma_300m_lora`
+- `batch_size: 2`
+
+若仍 OOM，再考虑更小 batch 或换更大显存 / 多卡 FSDP。

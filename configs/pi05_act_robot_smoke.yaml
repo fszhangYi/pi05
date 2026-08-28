@@ -29,12 +29,13 @@ model:
   action_horizon: 10
   max_token_len: 200
   discrete_state_input: true
+  # Both LoRA: single 32GB GPU cannot hold full action-expert Adam state (OOM ~38GiB).
   paligemma_variant: gemma_2b_lora
-  action_expert_variant: gemma_300m
+  action_expert_variant: gemma_300m_lora
 
 training:
   seed: 42
-  batch_size: 8
+  batch_size: 2
   fsdp_devices: 1
   num_workers: 2
   num_train_steps: 10000
