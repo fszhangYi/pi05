@@ -6,6 +6,7 @@ equinox>=0.11.8
 filelock>=3.16.1
 flatbuffers>=24.3.25
 flax==0.10.2
+chex>=0.1.86
 fsspec[gcs]>=2024.6.0
 gym-aloha>=0.1.1
 imageio>=2.36.1
