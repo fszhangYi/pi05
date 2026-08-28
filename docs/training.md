@@ -54,7 +54,7 @@ bash scripts/train_8gpu.sh configs/pi05_act_robot_smoke.yaml
 bash scripts/train_2gpu.sh configs/pi05_act_robot_smoke.yaml   # 会校验 GPU 数
 ```
 
-所有训练脚本通过 `scripts/common_env.sh` 设置 `PYTHONPATH`（`src` + `lerobot` + `openpi`）。
+所有训练脚本通过 `scripts/common_env.sh` 设置 `PYTHONPATH`（`src` + `lerobot` + `openpi`），并把 `HF_HOME` / `TMPDIR` / `PIP_CACHE_DIR` 指到数据盘（见 [issues.md](issues.md) ISSUE-001），避免写满 AutoDL 系统盘。
 
 ## Checkpoint 输出
 

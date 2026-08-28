@@ -7,7 +7,10 @@
 # before running this script.
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=common_env.sh
+source "$SCRIPT_DIR/common_env.sh"
+
 PYTHON_BIN="${PYTHON_BIN:-python3.12}"
 VENV_DIR="${VENV_DIR:-$ROOT_DIR/.venv}"
 USE_VENV="${USE_VENV:-0}"
@@ -19,6 +22,10 @@ if [[ ! -d "$OPENPI_DIR/src/openpi" ]]; then
   echo "ERROR: openpi source not found at $OPENPI_DIR"
   exit 1
 fi
+
+echo "HF_HOME=$HF_HOME"
+echo "TMPDIR=$TMPDIR"
+echo "PIP_CACHE_DIR=$PIP_CACHE_DIR"
 
 if [[ "$USE_VENV" == "1" ]]; then
   "$PYTHON_BIN" -m venv "$VENV_DIR"

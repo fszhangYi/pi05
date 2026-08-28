@@ -196,12 +196,16 @@ USE_VENV=1 PYTHON_BIN=python3.12 bash scripts/setup_env.sh
 |---|---|
 | `.venv/` | ~7.4 GiB |
 | 冒烟 LeRobot 数据集 | ~12 GiB（100 episodes，图像嵌 parquet） |
+| HF Arrow 缓存（`pi05-cache/hf`） | ~12 GiB（与数据同份副本） |
 | `pip-cache/` | 视缓存而定 |
+
+**重要：** HuggingFace / pip / 临时文件默认会写到系统盘。本仓库通过 `scripts/common_env.sh` 强制改到数据盘（见 [issues.md](issues.md) ISSUE-001）。
 
 ---
 
 ## 相关文档
 
+- [issues.md](issues.md) — 踩坑与修复
 - [dataset_conversion.md](dataset_conversion.md) — 数据转换
 - [training.md](training.md) — 训练启动
 - [tonglu0602_workflow.md](tonglu0602_workflow.md) — Tonglu 原始数据格式说明

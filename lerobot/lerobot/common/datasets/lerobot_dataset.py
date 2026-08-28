@@ -677,6 +677,20 @@ class LeRobotDataset(torch.utils.data.Dataset):
         }
         return query_indices, padding
 
+    @staticmethod
+    def _stack_hf_column(values) -> torch.Tensor:
+        """Stack a HuggingFace column/list into a tensor.
+
+        datasets>=3 may return a ``Column`` instead of a list of tensors; convert
+        each element with ``torch.as_tensor`` before ``torch.stack``.
+        """
+        if hasattr(values, "to_pylist"):
+            values = values.to_pylist()
+        elif hasattr(values, "to_list"):
+            values = values.to_list()
+        tensors = [v if isinstance(v, torch.Tensor) else torch.as_tensor(v) for v in values]
+        return torch.stack(tensors)
+
     def _get_query_timestamps(
         self,
         current_ts: float,
@@ -686,7 +700,7 @@ class LeRobotDataset(torch.utils.data.Dataset):
         for key in self.meta.video_keys:
             if query_indices is not None and key in query_indices:
                 timestamps = self.hf_dataset.select(query_indices[key])["timestamp"]
-                query_timestamps[key] = torch.stack(timestamps).tolist()
+                query_timestamps[key] = self._stack_hf_column(timestamps).tolist()
             else:
                 query_timestamps[key] = [current_ts]
 
@@ -694,7 +708,7 @@ class LeRobotDataset(torch.utils.data.Dataset):
 
     def _query_hf_dataset(self, query_indices: dict[str, list[int]]) -> dict:
         return {
-            key: torch.stack(self.hf_dataset.select(q_idx)[key])
+            key: self._stack_hf_column(self.hf_dataset.select(q_idx)[key])
             for key, q_idx in query_indices.items()
             if key not in self.meta.video_keys
         }
