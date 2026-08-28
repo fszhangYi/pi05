@@ -101,7 +101,46 @@ TypeError: stack(): argument 'tensors' (position 1) must be tuple of Tensors, no
 
 ---
 
-## ISSUE-003：训练依赖未随 `--no-deps` 安装完整
+## ISSUE-004：调试加载 `LeRobotDataset` 导致主机内存飙到 ~90GB+
+
+**状态：** 已处理（杀掉残留进程）；训练时需注意不要一次物化全部图像  
+**日期：** 2026-08-28
+
+### 现象
+
+主机 RSS 突然占用很大（实测约 **90GB / 11% of 754GB**），GPU 显存几乎为 0。  
+进程形如 `python -`（交互/`python - <<'PY'` 调试脚本），长期高 CPU。
+
+### 根因
+
+不是训练 OOM，而是调试时执行了：
+
+```python
+LeRobotDataset('company/act_robot_three_view_smoke')
+```
+
+冒烟集约 **14849 帧 × 3 路图**，HF `datasets` 把嵌在 parquet 里的 JPEG **解码/映射进 Arrow**。  
+未压缩 RGB 粗算：`14849 × 3 × 720 × 1280 × 3 ≈ 120GB` 量级，进程 RSS 冲到 ~90GB 合理。
+
+磁盘上的 Arrow 缓存约 12G（仍是压缩/列存）；**内存里解出来才会爆**。
+
+### 处理
+
+```bash
+# 找到大 RSS python 并杀掉
+ps aux --sort=-%mem | head
+kill -9 <pid>
+```
+
+正式训练应用 DataLoader 按 batch 取样本，不要在主进程一次性遍历解码全库。
+
+### 与 ISSUE-001 的区别
+
+| | ISSUE-001 | ISSUE-004 |
+|---|---|---|
+| 资源 | 磁盘（系统盘） | 主机内存 RAM |
+| 报错 | `ENOSPC` / Errno 28 | 无报错时也会把机器拖慢 |
+| 原因 | HF 缓存写到 overlay | 全量图像解码进 RAM |
 
 **状态：** 已修复（`requirements/openpi_jax.txt` + `setup_env.sh` 补装）  
 **日期：** 2026-08-28
