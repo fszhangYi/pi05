@@ -11,3 +11,4 @@ __pycache__/
 *.egg-info/
 .claude/
 *.tar.gz
+**/.ipynb_checkpoints/
