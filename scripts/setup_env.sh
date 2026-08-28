@@ -42,6 +42,9 @@ fi
 "$PYTHON_CMD" -m pip install --no-deps "$OPENPI_DIR"
 "$PYTHON_CMD" -m pip install --no-deps "$ROOT_DIR"
 
+# Transitive deps not always pulled in with --no-deps openpi installs.
+"$PYTHON_CMD" -m pip install "chex>=0.1.86" "pytest>=8.0.0"
+
 echo
 echo "Environment ready."
 [[ "$USE_VENV" == "1" ]] && echo "Activate with: source $VENV_DIR/bin/activate"
