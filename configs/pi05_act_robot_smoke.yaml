@@ -1,16 +1,14 @@
 # ============================================================
-# pi0.5 JAX SFT - act_robot raw → LeRobot (本机路径)
-# raw: ~/autodl-tmp/act_robot/data/raw
-# annotation: ~/autodl-tmp/act_robot/data/annotation/annotation/restored_txt
+# pi0.5 JAX SFT - act_robot 冒烟集（100 episodes）
 # ============================================================
 
 project:
-  name: pi05_act_robot
-  exp_name: convert_local
+  name: pi05_act_robot_smoke
+  exp_name: convert_smoke
   project_name: pi05-act-robot
 
 data:
-  repo_id: company/act_robot_three_view
+  repo_id: company/act_robot_three_view_smoke
   dataset_format: tonglu_annotation
   raw_root: /root/autodl-tmp/act_robot/data/raw
   annotation_root: /root/autodl-tmp/act_robot/data/annotation/annotation/restored_txt
@@ -25,7 +23,7 @@ data:
   prompt_from_task: true
   normalize_rx_to_2pi: true
   gripper_action_source: next_observation
-  max_episodes: null   # 全量转换；冒烟请用 configs/pi05_act_robot_smoke.yaml
+  max_episodes: 100
 
 model:
   action_horizon: 10

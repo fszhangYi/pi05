@@ -142,16 +142,27 @@ def _require_frames_from_map(
     return [frame_map[idx] for idx in frame_indices]
 
 
+def _parse_annotation_line(line: str) -> tuple[float, float]:
+    """Parse one annotation row in either ``1 5`` or ``1: 5`` format."""
+    line = line.strip()
+    if not line:
+        raise ValueError("empty line")
+    if ":" in line:
+        left, right = line.split(":", 1)
+        return float(left.strip()), float(right.strip())
+    parts = line.split()
+    if len(parts) < 2:
+        raise ValueError(f"expected at least two columns, got {line!r}")
+    return float(parts[0]), float(parts[1])
+
+
 def _read_annotation(path: Path) -> dict[str, int]:
-    rows: list[list[float]] = []
+    rows: list[tuple[float, float]] = []
     for line in path.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if not line:
             continue
-        parts = line.split()
-        if len(parts) < 2:
-            raise ValueError(f"{path}: expected at least two columns, got {line!r}")
-        rows.append([float(parts[0]), float(parts[1])])
+        rows.append(_parse_annotation_line(line))
 
     if len(rows) < 12:
         raise ValueError(f"{path}: expected 12 annotation rows, got {len(rows)}")
