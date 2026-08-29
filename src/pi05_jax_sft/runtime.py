@@ -44,6 +44,33 @@ def load_openpi_script(project_root: Path, script_name: str) -> ModuleType:
     return module
 
 
+def resolve_base_checkpoint(cfg: PipelineConfig) -> Path:
+    return Path(cfg.resolve_maybe_remote(cfg.paths.base_checkpoint_path)).expanduser()
+
+
+def is_pytorch_base_checkpoint(base: Path) -> bool:
+    """True when base is a PyTorch openpi dir (model.safetensors) or named pi05_base_pytorch."""
+    if base.name == "pi05_base_pytorch" or base.name.endswith("pi05_base_pytorch"):
+        return True
+    if (base / "model.safetensors").is_file():
+        return True
+    return False
+
+
+def count_visible_gpus() -> int:
+    import subprocess
+
+    try:
+        out = subprocess.check_output(
+            ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        )
+        return len([line for line in out.splitlines() if line.strip()])
+    except (FileNotFoundError, subprocess.CalledProcessError, OSError):
+        return 0
+
+
 def build_train_config(cfg: PipelineConfig):
     ensure_openpi_importable(cfg.project_root)
     from openpi import transforms
@@ -72,6 +99,10 @@ def build_train_config(cfg: PipelineConfig):
         inputs=[CompanyWristInputs()],
         outputs=[CompanyWristOutputs(action_dim=cfg.model.policy_action_dim)],
     )
+
+    base_ckpt = resolve_base_checkpoint(cfg)
+    use_pytorch = is_pytorch_base_checkpoint(base_ckpt)
+    pytorch_weight_path = str(base_ckpt) if use_pytorch else None
 
     return train_config.TrainConfig(
         name=cfg.project.name,
@@ -105,11 +136,11 @@ def build_train_config(cfg: PipelineConfig):
             decay_lr=cfg.training.decay_lr,
         ),
         optimizer=optimizer.AdamW(clip_gradient_norm=cfg.training.clip_gradient_norm),
-        weight_loader=weight_loaders.CheckpointWeightLoader(
-            cfg.resolve_maybe_remote(cfg.paths.base_checkpoint_path)
-        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(str(base_ckpt)),
         assets_base_dir=str(cfg.resolve_path(cfg.paths.assets_base_dir)),
         checkpoint_base_dir=str(cfg.resolve_path(cfg.paths.checkpoint_base_dir)),
+        pytorch_weight_path=pytorch_weight_path,
+        pytorch_training_precision="bfloat16",
         policy_metadata={
             "camera_mapping": {
                 "base_0_rgb": "chest_image",
