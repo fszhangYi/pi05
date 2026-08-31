@@ -504,9 +504,12 @@ class LeRobotDataset(torch.utils.data.Dataset):
 
         self.episode_data_index = get_episode_data_index(self.meta.episodes, self.episodes)
 
-        # Check timestamps
-        timestamps = torch.as_tensor(list(self.hf_dataset["timestamp"])).numpy()
-        episode_indices = torch.as_tensor(list(self.hf_dataset["episode_index"])).numpy()
+        # Check timestamps without decoding images (ISSUE-004): column access via the
+        # HF transform path materializes full rows and decodes every embedded JPEG.
+        # Read scalar columns directly from the underlying Arrow table instead.
+        _table = self.hf_dataset.data
+        timestamps = np.asarray(_table.column("timestamp").to_pylist(), dtype=np.float64)
+        episode_indices = np.asarray(_table.column("episode_index").to_pylist(), dtype=np.int64)
         ep_data_index_np = {k: t.numpy() for k, t in self.episode_data_index.items()}
         check_timestamps_sync(timestamps, episode_indices, ep_data_index_np, self.fps, self.tolerance_s)
 

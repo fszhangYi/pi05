@@ -155,6 +155,9 @@ kill -9 <pid>
 
 正式训练应用 DataLoader 按 batch 取样本，不要在主进程一次性遍历解码全库。
 
+另外 `LeRobotDataset.__init__` 里用 `list(hf_dataset["timestamp"])` 会走 `set_transform`，同样触发全图解码。  
+已改为直接读 Arrow 列：`hf_dataset.data.column("timestamp").to_pylist()`（见 `lerobot/.../lerobot_dataset.py`）。
+
 ### 与 ISSUE-001 的区别
 
 | | ISSUE-001 | ISSUE-004 |
@@ -167,8 +170,8 @@ kill -9 <pid>
 
 ## ISSUE-005：单卡 32GB 上 `gemma_2b_lora` + 全参 `gemma_300m` 初始化 OOM
 
-**状态：** 冒烟配置已改为双 LoRA + `batch_size: 2`  
-**日期：** 2026-08-28
+**状态：** 冒烟配置用双 LoRA + `batch_size: 2`；**且** `build_train_config` 必须设置 `freeze_filter`  
+**日期：** 2026-08-28（2026-08-31 补记 freeze_filter）
 
 ### 现象
 
@@ -182,14 +185,21 @@ The byte size of input/output arguments (40575638180) exceeds the base limit (26
 
 ### 根因
 
-RTX 5090 仅 **32GB**。pi0.5 base 权重约 **12.5GiB**，再加 AdamW 对全参 action expert 的优化状态，XLA 峰值约 **38GiB**。  
-官方 README 亦写 LoRA 最低约 **2×A100 40G**。
+1. RTX 5090 仅 **32GB**。pi0.5 base 权重约 **12.5GiB**，再加 AdamW 对全参 action expert 的优化状态，XLA 峰值约 **38GiB**。
+2. YAML 写了 `*_lora` 但 `pi05_jax_sft.runtime.build_train_config` **未传 `freeze_filter`** 时，`trainable_filter` 仍覆盖几乎全部参数，Adam 状态回到 ~38GiB（与全参相同）。
 
 ### 处理
 
 冒烟 YAML：
 
+- `paligemma_variant: gemma_2b_lora`
 - `action_expert_variant: gemma_300m_lora`
 - `batch_size: 2`
+
+代码：
+
+- `freeze_filter=model_cfg.get_freeze_filter()`（`src/pi05_jax_sft/runtime.py`）
+
+实测（100 ep 三视角冒烟，bs=2，fsdp=1）：稳态约 **11.6GiB**，存盘峰值约 **17GiB**（预算约 22.5GiB）。
 
 若仍 OOM，再考虑更小 batch 或换更大显存 / 多卡 FSDP。

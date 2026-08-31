@@ -109,6 +109,8 @@ def build_train_config(cfg: PipelineConfig):
         project_name=cfg.project.project_name,
         exp_name=cfg.project.exp_name,
         model=model_cfg,
+        # Without this, *_lora variants still train full weights (Adam on ~all params → ~38GiB init OOM).
+        freeze_filter=model_cfg.get_freeze_filter(),
         data=train_config.SimpleDataConfig(
             repo_id=cfg.data.repo_id,
             base_config=train_config.DataConfig(prompt_from_task=cfg.data.prompt_from_task),
